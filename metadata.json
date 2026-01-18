@@ -1,0 +1,5 @@
+{
+  "name": "CogniCurve",
+  "description": "A scientific, spaced-repetition learning management system based on the Ebbinghaus Forgetting Curve.",
+  "requestFramePermissions": []
+}
