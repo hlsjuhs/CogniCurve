@@ -13,19 +13,30 @@ interface ReviewSessionProps {
   onExit: () => void;
 }
 
+// Utility to shuffle array (Fisher-Yates) for Interleaved Practice
+const shuffleArray = <T,>(array: T[]): T[] => {
+    const arr = [...array];
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+};
+
 export const ReviewSession: React.FC<ReviewSessionProps> = ({ items, settings, onUpdateItem, onReviewItem, onComplete, onExit }) => {
-  const [queue, setQueue] = useState<LearningItem[]>(items);
+  // Optimization: Initialize queue with SHUFFLED items for Interleaved Practice
+  // This helps memory retention better than blocked practice (AAABBB vs ABABAB)
+  const [queue, setQueue] = useState<LearningItem[]>(() => shuffleArray(items));
+  
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [sessionStats, setSessionStats] = useState({ correct: 0, hard: 0 });
-  
-  // New State for Zoom
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
 
   const currentItem = queue[currentIndex];
 
   useEffect(() => {
-    // Items prop might change, but queue should generally stay stable for the session unless explicitly reset
+    // If props change significantly, you might want to reset, but usually review session is modal
   }, [items]);
 
   const annotations = useMemo(() => {
@@ -63,12 +74,6 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ items, settings, o
     }
 
     // 5. Move next
-    // Check if we need to requeue this item TODAY (intraday learning)
-    // calculateNextReview now sets nextReviewAt. 
-    // If nextReviewAt is less than e.g. 1 hour from now, we might want to keep it in current session or just rely on dashboard reload.
-    // For simplicity in this session view, we move linearly through the 'Due' queue. 
-    // The Dashboard will pick it up again if it's due in 10 mins.
-    
     if (currentIndex < queue.length - 1) {
       setIsFlipped(false);
       setTimeout(() => setCurrentIndex(prev => prev + 1), 150);
@@ -77,7 +82,6 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ items, settings, o
     }
   };
   
-  // Helper to preview next interval for UI buttons
   const getNextIntervalPreview = (diff: Difficulty) => {
       if (!currentItem) return '';
       const update = calculateNextReview(currentItem, diff, settings);
@@ -89,15 +93,11 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ items, settings, o
       return `${Math.round(days)} 天`;
   };
 
-  // --- Dynamic Typography & Layout Helpers ---
-  
   const getTextLengthConfig = (text: string, isFront: boolean) => {
-      // Remove basic markdown/html-like tags for length approximation if needed
       const cleanText = text.replace(/{{c\d::|}}/g, ''); 
       const len = cleanText.length;
 
       if (isFront) {
-          // Front Side Rules - Enhanced sizes to fill space
           if (len <= 5) return { 
               container: "items-center justify-center text-center",
               text: "text-6xl md:text-8xl font-bold tracking-tight leading-tight"
@@ -119,7 +119,6 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ items, settings, o
               text: "text-xl md:text-3xl font-medium leading-relaxed" 
           };
       } else {
-          // Back Side Rules
           if (len <= 10) return { 
               container: "items-center justify-center text-center", 
               text: "text-5xl md:text-7xl font-bold text-slate-800 leading-tight" 
@@ -139,13 +138,10 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ items, settings, o
       }
   };
 
-  // --- Render Content ---
-  
   const renderFrontContent = () => {
     if (!currentItem) return null;
 
     const styleConfig = getTextLengthConfig(currentItem.contentFront, true);
-
     let contentNode: React.ReactNode = currentItem.contentFront;
 
     if (currentItem.type === CardType.CLOZE) {
@@ -180,7 +176,6 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ items, settings, o
                     >
                         <img src={currentItem.mediaUrl} className="max-h-[40vh] w-auto object-contain" alt="Visual content" />
                         
-                        {/* Annotations */}
                         {annotations.map((ann: any) => (
                         <div 
                             key={ann.id}
@@ -199,7 +194,6 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ items, settings, o
                         </div>
                         ))}
 
-                        {/* Hover Zoom Icon */}
                         <div className="absolute inset-0 bg-black/0 group-hover/image:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover/image:opacity-100">
                              <div className="bg-white/90 p-2 rounded-full shadow-lg backdrop-blur-sm">
                                  <ZoomIn size={20} className="text-slate-700" />
@@ -214,9 +208,7 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ items, settings, o
 
   const renderBackContent = () => {
       if (!currentItem) return null;
-
       const styleConfig = getTextLengthConfig(currentItem.contentBack || '', false);
-
       let contentNode: React.ReactNode = currentItem.contentBack;
 
       if (currentItem.type === CardType.CLOZE) {
@@ -246,7 +238,6 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ items, settings, o
                   )}
               </div>
           );
-          // Return early for Cloze Back as it has custom structure
           return (
              <div className="w-full h-full flex flex-col items-start justify-start pt-4 overflow-y-auto no-scrollbar">
                 {contentNode}
@@ -281,7 +272,6 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ items, settings, o
 
   return (
     <div className="fixed inset-0 bg-slate-100 z-50 flex flex-col">
-      {/* Header */}
       <div className="px-6 py-4 flex justify-between items-center bg-white/80 backdrop-blur-md sticky top-0 z-20 border-b border-slate-200/50">
         <div className="flex flex-col">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
@@ -303,7 +293,6 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ items, settings, o
         </button>
       </div>
 
-      {/* Main Card Area */}
       <div className="flex-1 flex items-center justify-center p-4 md:p-6 perspective-1000 overflow-hidden">
         <div 
           className="relative w-full max-w-3xl h-full max-h-[80vh] md:aspect-[4/3] cursor-pointer group"
@@ -311,8 +300,6 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ items, settings, o
           style={{ perspective: '1000px' }}
         >
             <div className={`relative w-full h-full transition-all duration-500 transform-style-3d shadow-2xl rounded-[2rem] bg-white border border-slate-100 ${isFlipped ? 'rotate-y-180' : ''}`}>
-                
-                {/* Front Side */}
                 <div className="absolute inset-0 backface-hidden flex flex-col p-6 md:p-10 bg-white rounded-[2rem]">
                     <div className="flex justify-between items-start mb-2 flex-shrink-0">
                          <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border ${
@@ -334,7 +321,6 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ items, settings, o
                     </div>
                 </div>
 
-                {/* Back Side */}
                 <div className="absolute inset-0 backface-hidden rotate-y-180 flex flex-col p-6 md:p-10 bg-slate-50 rounded-[2rem]">
                      <div className="flex justify-between items-start mb-2 flex-shrink-0">
                          <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide bg-primary-50 text-primary-700 border border-primary-100">
@@ -346,12 +332,10 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ items, settings, o
                         {renderBackContent()}
                     </div>
                 </div>
-
             </div>
         </div>
       </div>
 
-      {/* Controls Container with Fixed Height for Stability */}
       <div className="bg-white/90 backdrop-blur-lg px-6 border-t border-slate-200 z-20 flex items-center justify-center h-32 pb-4">
         {!isFlipped ? (
              <button 
@@ -401,32 +385,20 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ items, settings, o
         )}
       </div>
 
-      {/* Image Zoom Modal */}
       {zoomedImage && (
           <div className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center p-4 animate-fade-in" onClick={() => setZoomedImage(null)}>
               <div className="relative max-w-full max-h-full">
                   <img src={zoomedImage} alt="Zoomed" className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl" />
-                  <button 
-                    onClick={() => setZoomedImage(null)}
-                    className="absolute -top-12 right-0 md:-right-12 text-white/70 hover:text-white p-2"
-                  >
+                  <button onClick={() => setZoomedImage(null)} className="absolute -top-12 right-0 md:-right-12 text-white/70 hover:text-white p-2">
                       <X size={32} />
                   </button>
               </div>
           </div>
       )}
-      
       <style>{`
-        .rotate-y-180 {
-            transform: rotateY(180deg);
-        }
-        .transform-style-3d {
-            transform-style: preserve-3d;
-        }
-        .backface-hidden {
-            -webkit-backface-visibility: hidden;
-            backface-visibility: hidden;
-        }
+        .rotate-y-180 { transform: rotateY(180deg); }
+        .transform-style-3d { transform-style: preserve-3d; }
+        .backface-hidden { -webkit-backface-visibility: hidden; backface-visibility: hidden; }
       `}</style>
     </div>
   );

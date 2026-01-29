@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { LearningItem, CardType, Difficulty } from '../types';
 import { calculateNextReview, DEFAULT_SETTINGS } from '../services/srsSystem';
-import { Calendar, ChevronLeft, ChevronRight, Clock, FileText, CheckCircle2, Milestone } from 'lucide-react';
+import { generateICSFile } from '../services/calendarService';
+import { Calendar, ChevronLeft, ChevronRight, Clock, FileText, CheckCircle2, Milestone, CalendarCheck } from 'lucide-react';
 
 interface CalendarViewProps {
     items?: LearningItem[]; 
@@ -118,6 +119,16 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ items = [] }) => {
   const selectedItems = Array.from(new Set(rawSelectedItems.map(i => i.id)))
     .map(id => rawSelectedItems.find(i => i.id === id)!);
 
+  const handleSyncToOutlook = () => {
+      if (items.length === 0) {
+          alert("暂无复习计划可同步");
+          return;
+      }
+      if(confirm("将导出当前已安排的复习计划为日历文件 (.ics)。\n\n下载后请双击文件，它将自动打开 Outlook 或系统日历进行导入。是否继续？")) {
+          generateICSFile(items);
+      }
+  };
+
   return (
     <div className="space-y-6 pb-24 md:pb-0">
       <div className="flex justify-between items-center">
@@ -125,6 +136,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ items = [] }) => {
             <h2 className="text-2xl font-bold text-slate-900">复习时间轴</h2>
             <p className="text-slate-500 text-sm">未来 30 天认知负荷预测 (基于一般难度估算)</p>
         </div>
+        <button 
+            onClick={handleSyncToOutlook}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 font-medium rounded-xl hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700 transition-colors shadow-sm"
+        >
+            <CalendarCheck size={18} />
+            <span className="hidden sm:inline">同步到 Outlook 日历</span>
+        </button>
       </div>
 
       {/* Heatmap Section */}

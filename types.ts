@@ -1,3 +1,16 @@
+
+// Add Global Definition for Electron API
+declare global {
+  interface Window {
+    electronAPI?: {
+      saveImage: (dataUrl: string) => Promise<string>;
+      saveFile: (filename: string, content: string) => Promise<string>; // New API
+      openExternal: (url: string) => Promise<void>;
+      openPath: (path: string) => Promise<void>;
+    };
+  }
+}
+
 export enum CardType {
   BASIC = '基础闪卡',
   CLOZE = '填空/完形',
@@ -18,6 +31,14 @@ export interface Tag {
   color: string;
 }
 
+// FSRS State: 0=New, 1=Learning, 2=Review, 3=Relearning
+export enum FSRSState {
+  New = 0,
+  Learning = 1,
+  Review = 2,
+  Relearning = 3
+}
+
 export interface LearningItem {
   id: string;
   type: CardType;
@@ -34,9 +55,14 @@ export interface LearningItem {
   reviewCount: number;
   status: 'new' | 'learning' | 'review' | 'mastered';
   
-  // SRS Specific Fields
-  currentInterval: number; // Days (can be fractional)
-  stability: number; // The 'S' factor
+  // Standard Fields (kept for UI compatibility)
+  currentInterval: number; // Days
+  stability: number; // Used as 'S' in FSRS
+
+  // FSRS Specific Fields
+  fsrsDifficulty?: number; // D (1-10)
+  fsrsState?: FSRSState;   // State (New/Learning/Review/Relearning)
+  fsrsLastReview?: Date;   // Precise timestamp for calculation
 }
 
 export interface ReviewLog {
@@ -52,14 +78,9 @@ export interface DailyStats {
   newCardsAdded: number;
 }
 
-export interface MultiplierConfig {
-  multiplier: number; // 间隔倍率
-  stabilityMod: number; // 稳定度变化系数 (e.g. 1.2 for +20%)
-}
-
+// FSRS Settings replace the old MultiplierConfig
 export interface AlgorithmSettings {
-  [Difficulty.EASY]: MultiplierConfig;
-  [Difficulty.MEDIUM]: MultiplierConfig;
-  [Difficulty.HARD]: MultiplierConfig;
-  [Difficulty.FORGOTTEN]: MultiplierConfig;
+  requestRetention: number; // 0.7 to 0.99 (Default 0.9)
+  maximumInterval: number;  // Days (e.g., 36500)
+  w: number[];             // FSRS Weights (17/19 params)
 }
